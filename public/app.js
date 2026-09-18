@@ -1,37 +1,35 @@
-// Training Institute Finder
-// Frontend JavaScript
-// Login / Register removed
-
-const $ = (selector) => document.querySelector(selector);
+const $ = (s) => document.querySelector(s);
 
 let allInstitutes = [];
-let allCourses = [];
 
-// ===============================
-// API Helper
-// ===============================
+// =========================
+// API HELPER
+// =========================
 async function api(url, options = {}) {
-  const response = await fetch(url, {
+  const headers = options.headers || {};
+
+  if (options.body && typeof options.body === "object") {
+    headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(options.body);
+  }
+
+  const res = await fetch(url, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {})
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined
+    headers
   });
 
-  const data = await response.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({}));
 
-  if (!response.ok) {
-    throw new Error(data.message || data.error || "Something went wrong");
+  if (!res.ok) {
+    throw new Error(data.message || "Request failed");
   }
 
   return data;
 }
 
-// ===============================
-// Escape HTML
-// ===============================
+// =========================
+// ESCAPE HTML
+// =========================
 function esc(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -41,159 +39,122 @@ function esc(value) {
     .replace(/'/g, "&#039;");
 }
 
-// ===============================
-// Load Courses
-// ===============================
-async function loadCourses() {
-  try {
-    allCourses = await api("/api/courses");
-
-    const courseSelect = $("#course");
-
-    if (courseSelect) {
-      courseSelect.innerHTML =
-        '<option value="">All Courses</option>';
-
-      allCourses.forEach((course) => {
-        const option = document.createElement("option");
-
-        option.value = course.id;
-        option.textContent = course.name;
-
-        courseSelect.appendChild(option);
-      });
-    }
-  } catch (error) {
-    console.error("Error loading courses:", error);
-  }
-}
-
-// ===============================
-// Load Institutes
-// ===============================
+// =========================
+// LOAD INSTITUTES
+// =========================
 async function loadInstitutes() {
   try {
-    const searchInput = $("#search");
-    const citySelect = $("#city");
-    const courseSelect = $("#course");
-
-    const search =
-      searchInput?.value.trim() || "";
-
-    const city =
-      citySelect?.value || "";
-
-    const course =
-      courseSelect?.value || "";
+    const search = $("#q")?.value.trim() || "";
+    const city = $("#city")?.value || "";
 
     const params = new URLSearchParams();
 
     if (search) {
-      params.append("search", search);
+      params.append("q", search);
     }
 
     if (city) {
       params.append("city", city);
     }
 
-    if (course) {
-      params.append("course", course);
-    }
+    const query = params.toString();
 
-    const url =
-      "/api/institutes" +
-      (params.toString()
-        ? "?" + params.toString()
-        : "");
+    const url = query
+      ? `/api/institutes?${query}`
+      : "/api/institutes";
 
     allInstitutes = await api(url);
 
     displayInstitutes(allInstitutes);
+
   } catch (error) {
     console.error("Error loading institutes:", error);
 
-    const container = $("#institutes");
+    const cards = $("#cards");
 
-    if (container) {
-      container.innerHTML = `
+    if (cards) {
+      cards.innerHTML = `
         <div class="notice">
           Unable to load institutes.
-          Please make sure the server and database are running.
+          Please check the server and database.
         </div>
       `;
     }
   }
 }
 
-// ===============================
-// Display Institutes
-// ===============================
+// =========================
+// DISPLAY INSTITUTES
+// =========================
 function displayInstitutes(institutes) {
-  const container = $("#institutes");
+  const cards = $("#cards");
+  const count = $("#count");
 
-  if (!container) {
-    console.error("Institutes container not found.");
-    return;
-  }
+  if (!cards) return;
 
   if (!institutes || institutes.length === 0) {
-    container.innerHTML = `
+    cards.innerHTML = `
       <div class="notice">
         No training institutes found.
       </div>
     `;
+
+    if (count) {
+      count.textContent = "0 institutes";
+    }
+
     return;
   }
 
-  container.innerHTML = institutes
-    .map((institute) => {
-      return `
-        <div class="institute-card">
+  if (count) {
+    count.textContent =
+      `${institutes.length} institute${institutes.length !== 1 ? "s" : ""}`;
+  }
 
-          <h3>${esc(institute.name)}</h3>
+  cards.innerHTML = institutes.map((institute) => `
+    <div class="institute-card">
 
-          <p>
-            <strong>City:</strong>
-            ${esc(institute.city)}
-          </p>
+      <h3>${esc(institute.name)}</h3>
 
-          <p>
-            <strong>Address:</strong>
-            ${esc(institute.address || "Not available")}
-          </p>
+      <p>
+        <strong>City:</strong>
+        ${esc(institute.city || "")}
+      </p>
 
-          <p>
-            <strong>Phone:</strong>
-            ${esc(institute.phone || "Not available")}
-          </p>
+      <p>
+        <strong>Address:</strong>
+        ${esc(institute.address || "Not available")}
+      </p>
 
-          <p>
-            <strong>Description:</strong>
-            ${esc(institute.description || "No description available")}
-          </p>
+      <p>
+        <strong>Phone:</strong>
+        ${esc(institute.phone || "Not available")}
+      </p>
 
-          <button
-            class="btn"
-            onclick="viewInstitute(${Number(institute.id)})">
-            View Location
-          </button>
+      <p>
+        ${esc(institute.description || "")}
+      </p>
 
-        </div>
-      `;
-    })
-    .join("");
+      <button
+        class="btn primary"
+        onclick="viewInstitute(${Number(institute.id)})">
+        View Location
+      </button>
+
+    </div>
+  `).join("");
 }
 
-// ===============================
-// View Institute Location
-// ===============================
+// =========================
+// VIEW INSTITUTE LOCATION
+// =========================
 function viewInstitute(id) {
   const institute = allInstitutes.find(
     (item) => Number(item.id) === Number(id)
   );
 
   if (!institute) {
-    alert("Institute details not found.");
+    alert("Institute not found.");
     return;
   }
 
@@ -212,61 +173,9 @@ function viewInstitute(id) {
   window.open(mapsUrl, "_blank");
 }
 
-// ===============================
-// Search Button
-// ===============================
-function setupSearch() {
-  const searchButton = $("#searchBtn");
-
-  if (searchButton) {
-    searchButton.addEventListener(
-      "click",
-      loadInstitutes
-    );
-  }
-
-  const searchInput = $("#search");
-
-  if (searchInput) {
-    searchInput.addEventListener(
-      "keydown",
-      (event) => {
-        if (event.key === "Enter") {
-          loadInstitutes();
-        }
-      }
-    );
-  }
-
-  const citySelect = $("#city");
-
-  if (citySelect) {
-    citySelect.addEventListener(
-      "change",
-      loadInstitutes
-    );
-  }
-
-  const courseSelect = $("#course");
-
-  if (courseSelect) {
-    courseSelect.addEventListener(
-      "change",
-      loadInstitutes
-    );
-  }
-}
-
-// ===============================
-// Page Start
-// ===============================
-document.addEventListener(
-  "DOMContentLoaded",
-  async () => {
-    setupSearch();
-
-    await loadCourses();
-
-    await loadInstitutes();
-  }
-);
+// =========================
+// PAGE LOAD
+// =========================
+document.addEventListener("DOMContentLoaded", () => {
+  loadInstitutes();
+});
