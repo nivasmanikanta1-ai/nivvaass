@@ -1,1 +1,199 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Smart Training Centre Finder</title><link rel="stylesheet" href="/style.css"></head><body><header><b>Smart Training Centre Finder</b><span>Kakinada District</span><div id="user"></div></header><main><section id="auth"><div class="hero"><small>KAKINADA DISTRICT</small><h1>Find training centres near you.</h1><p>Login, search an area, view courses and open the route directly in Google Maps.</p></div><div class="box"><div class="tabs"><button id="lt">Login</button><button id="rt">Register</button></div><form id="login"><input id="le" type="email" placeholder="Email" required><input id="lp" type="password" placeholder="Password" required><button>Login</button></form><form id="register" class="hide"><input id="rn" placeholder="Name" required><input id="re" type="email" placeholder="Email" required><input id="rp" type="password" minlength="6" placeholder="Password (6+)" required><button>Create account</button></form><p id="msg"></p></div></section><section id="app" class="hide"><div class="head"><div><small>DISCOVER</small><h2>Training centres around Kakinada</h2><p>Search Bhanugudi, Ramanayyapeta, Gandhi Chowk, etc.</p></div><button id="loc" class="secondary">Use my location</button></div><div class="search"><div><input id="q" placeholder="Enter area / location"><button id="search">Search</button></div><div><input id="course" placeholder="Filter by course e.g. AWS, Python, AutoCAD"><button id="all" class="secondary">Show all</button></div><p id="status"></p></div><div id="list"></div></section></main><div id="modal" class="hide"><div class="modal"><button id="close">×</button><div id="detail"></div></div></div><script src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Training Institute Finder</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<header>
+    <div class="nav">
+
+        <a class="brand" href="#">
+            <span class="logo">🎓</span>
+
+            <span>
+                Training Institute<br>
+                <small>FINDER</small>
+            </span>
+        </a>
+
+        <div class="navlinks">
+            <a href="#home">Home</a>
+            <a href="#institutes">Institutes</a>
+            <a href="#about">About</a>
+        </div>
+
+    </div>
+</header>
+
+
+<main id="home">
+
+    <!-- HERO SECTION -->
+    <section class="hero">
+
+        <div>
+
+            <div class="pill">
+                📍 Kakinada • Visakhapatnam
+            </div>
+
+            <h1>
+                Find the right
+                <span>training institute</span>
+                for your career.
+            </h1>
+
+            <p>
+                Search institutes, compare courses,
+                view addresses and navigate to your
+                chosen training centre.
+            </p>
+
+            <div class="searchbox">
+
+                <input
+                    id="q"
+                    placeholder="Search institute, course or area..."
+                >
+
+                <select id="city">
+                    <option value="">All cities</option>
+                    <option value="Kakinada">Kakinada</option>
+                    <option value="Visakhapatnam">
+                        Visakhapatnam
+                    </option>
+                </select>
+
+                <select id="course">
+                    <option value="">All courses</option>
+                </select>
+
+                <button
+                    class="btn primary"
+                    onclick="loadInstitutes()"
+                >
+                    Search
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <div class="hero-art">
+
+            <div class="float-card">
+                ⭐ 4.8<br>
+                <small>Popular institutes</small>
+            </div>
+
+            <div class="big-icon">
+                🎓
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- INSTITUTES -->
+    <section id="institutes" class="section">
+
+        <div class="section-head">
+
+            <div>
+                <span class="eyebrow">
+                    DISCOVER
+                </span>
+
+                <h2>
+                    Training institutes near you
+                </h2>
+            </div>
+
+            <span id="count" class="count"></span>
+
+        </div>
+
+        <div id="cards" class="grid"></div>
+
+    </section>
+
+
+    <!-- ABOUT -->
+    <section id="about" class="about">
+
+        <div>
+
+            <span class="eyebrow">
+                WHY USE IT?
+            </span>
+
+            <h2>
+                Everything you need before joining.
+            </h2>
+
+            <p>
+                Find institute details in one place,
+                explore courses, compare institutes
+                and open the location in Google Maps.
+            </p>
+
+        </div>
+
+
+        <div class="features">
+
+            <div>
+                🔎
+                <b>Smart Search</b>
+                <small>
+                    Search by course, institute or city.
+                </small>
+            </div>
+
+            <div>
+                📍
+                <b>Easy Navigation</b>
+                <small>
+                    Open the institute location in Maps.
+                </small>
+            </div>
+
+            <div>
+                🎓
+                <b>Find Institutes</b>
+                <small>
+                    Discover training institutes easily.
+                </small>
+            </div>
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<footer>
+    © 2026 Training Institute Finder •
+    Kakinada & Visakhapatnam
+</footer>
+
+
+<script src="app.js"></script>
+
+</body>
+</html>
+
+Now there will be no Login button, no Login page, and no Login popup.
+
+You can also remove the login/register code from "app.js" later; it won't be needed for this version.
