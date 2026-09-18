@@ -48,222 +48,141 @@ function esc(value) {
 }
 
 // =========================
-// LOAD COURSES
+// LOGIN BUTTON
 // =========================
-async function loadCourses() {
-    try {
-        allCourses = await api("/api/courses");
+document.addEventListener("DOMContentLoaded", () => {
 
-        const select = $("#course");
+    const loginBtn = $("#loginBtn");
 
-        if (!select) return;
+    if (loginBtn) {
+        loginBtn.addEventListener("click", () => {
 
-        select.innerHTML =
-            '<option value="">All courses</option>';
+            if (token && currentUser) {
+                logoutUser();
+            } else {
+                openLogin();
+            }
 
-        allCourses.forEach(course => {
-            const option = document.createElement("option");
-            option.value = course.name;
-            option.textContent = course.name;
-            select.appendChild(option);
         });
+    }
 
-    } catch (error) {
-        console.error("Course loading error:", error);
+    updateLoginButton();
+
+    loadCourses();
+    loadInstitutes();
+
+    // Close modal when clicking outside
+    const modal = $("#modal");
+
+    if (modal) {
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+    }
+});
+
+// =========================
+// UPDATE LOGIN BUTTON
+// =========================
+function updateLoginButton() {
+
+    const btn = $("#loginBtn");
+
+    if (!btn) return;
+
+    if (token && currentUser) {
+        btn.textContent = "Logout";
+    } else {
+        btn.textContent = "Login";
     }
 }
 
 // =========================
-// LOAD INSTITUTES
-// =========================
-async function loadInstitutes() {
-    try {
-        const q = $("#q")?.value || "";
-        const city = $("#city")?.value || "";
-        const course = $("#course")?.value || "";
-
-        const params = new URLSearchParams();
-
-        if (q) params.append("q", q);
-        if (city) params.append("city", city);
-        if (course) params.append("course", course);
-
-        const institutes =
-            await api("/api/institutes?" + params.toString());
-
-        allInstitutes = institutes;
-
-        const cards = $("#cards");
-
-        if (!cards) return;
-
-        $("#count").textContent =
-            `${institutes.length} institute${institutes.length !== 1 ? "s" : ""}`;
-
-        if (!institutes.length) {
-            cards.innerHTML = `
-                <div class="notice">
-                    No institutes found.
-                </div>
-            `;
-            return;
-        }
-
-        cards.innerHTML = institutes.map(i => {
-
-            const maps =
-                `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                    i.latitude && i.longitude
-                        ? `${i.latitude},${i.longitude}`
-                        : i.address
-                )}`;
-
-            return `
-                <div class="card">
-
-                    <div class="photo">
-                        🎓
-                    </div>
-
-                    <div class="cardbody">
-
-                        <h3>${esc(i.name)}</h3>
-
-                        <div class="rating">
-                            ⭐ ${esc(i.rating || "0")}
-                        </div>
-
-                        <p class="muted">
-                            📍 ${esc(i.address)}
-                        </p>
-
-                        <p class="muted">
-                            ${esc(i.city)}
-                        </p>
-
-                        <div class="tags">
-                            ${(i.courses || "")
-                                .split(", ")
-                                .filter(Boolean)
-                                .map(c =>
-                                    `<span class="tag">${esc(c)}</span>`
-                                )
-                                .join("")}
-                        </div>
-
-                        <div class="actions">
-
-                            <button
-                                class="btn primary"
-                                onclick="viewInstitute(${i.id})">
-                                View
-                            </button>
-
-                            <a
-                                class="btn ghost"
-                                href="${maps}"
-                                target="_blank">
-                                Maps
-                            </a>
-
-                        </div>
-
-                    </div>
-                </div>
-            `;
-        }).join("");
-
-    } catch (error) {
-        console.error(error);
-
-        const cards = $("#cards");
-
-        if (cards) {
-            cards.innerHTML = `
-                <div class="notice">
-                    ${esc(error.message)}
-                </div>
-            `;
-        }
-    }
-}
-
-// =========================
-// LOGIN MODAL
+// OPEN LOGIN
 // =========================
 function openLogin() {
 
-    $("#modal").classList.remove("hidden");
+    const modal = $("#modal");
+    const content = $("#modalContent");
 
-    $("#modalContent").innerHTML = `
+    if (!modal || !content) {
+        alert("Login modal not found. Check index.html");
+        return;
+    }
+
+    content.innerHTML = `
         <h2>Login</h2>
-
-        <p class="muted">
-            Login to save your favourite institutes.
-        </p>
 
         <form id="loginForm" class="form">
 
+            <label>Email</label>
             <input
                 type="email"
                 id="loginEmail"
-                placeholder="Email"
+                placeholder="Enter your email"
                 required
             >
 
+            <label>Password</label>
             <input
                 type="password"
                 id="loginPassword"
-                placeholder="Password"
+                placeholder="Enter your password"
                 required
             >
 
-            <button class="btn primary" type="submit">
+            <button type="submit" class="btn primary">
                 Login
             </button>
 
-            <div id="loginMessage"></div>
+            <p id="loginMessage" class="notice"></p>
+
+            <p>
+                Don't have an account?
+                <button
+                    type="button"
+                    class="btn ghost"
+                    onclick="openRegister()"
+                >
+                    Register
+                </button>
+            </p>
 
         </form>
-
-        <p style="margin-top:15px">
-            Don't have an account?
-            <button
-                class="btn ghost"
-                onclick="openRegister()">
-                Register
-            </button>
-        </p>
     `;
 
-    $("#loginForm").addEventListener("submit", loginUser);
+    modal.classList.remove("hidden");
+
+    const form = $("#loginForm");
+
+    if (form) {
+        form.addEventListener("submit", loginUser);
+    }
 }
 
 // =========================
-// LOGIN
+// LOGIN USER
 // =========================
-async function loginUser(event) {
+async function loginUser(e) {
 
-    event.preventDefault();
+    e.preventDefault();
 
     const email = $("#loginEmail").value.trim();
     const password = $("#loginPassword").value;
 
     const message = $("#loginMessage");
 
-    message.innerHTML = `
-        <div class="notice">
-            Logging in...
-        </div>
-    `;
-
     try {
+
+        message.textContent = "Logging in...";
 
         const data = await api("/api/login", {
             method: "POST",
             body: {
-                email,
-                password
+                email: email,
+                password: password
             }
         });
 
@@ -271,140 +190,127 @@ async function loginUser(event) {
         currentUser = data.user;
 
         localStorage.setItem("token", token);
-        localStorage.setItem(
-            "user",
-            JSON.stringify(currentUser)
-        );
-
-        closeModal();
+        localStorage.setItem("user", JSON.stringify(currentUser));
 
         updateLoginButton();
 
-        alert(
-            "Login successful! Welcome " +
-            currentUser.name
-        );
+        message.textContent = "Login successful!";
 
-        loadInstitutes();
+        setTimeout(() => {
+            closeModal();
+            loadInstitutes();
+        }, 500);
 
     } catch (error) {
 
-        message.innerHTML = `
-            <div class="notice">
-                ❌ ${esc(error.message)}
-            </div>
-        `;
+        message.textContent = error.message || "Login failed";
     }
 }
 
 // =========================
-// REGISTER
+// OPEN REGISTER
 // =========================
 function openRegister() {
 
-    $("#modal").classList.remove("hidden");
+    const modal = $("#modal");
+    const content = $("#modalContent");
 
-    $("#modalContent").innerHTML = `
+    if (!modal || !content) return;
+
+    content.innerHTML = `
         <h2>Create Account</h2>
 
         <form id="registerForm" class="form">
 
+            <label>Name</label>
             <input
                 type="text"
                 id="registerName"
-                placeholder="Full name"
+                placeholder="Enter your name"
                 required
             >
 
+            <label>Email</label>
             <input
                 type="email"
                 id="registerEmail"
-                placeholder="Email"
+                placeholder="Enter your email"
                 required
             >
 
-            <input
-                type="text"
-                id="registerMobile"
-                placeholder="Mobile number"
-            >
-
+            <label>Password</label>
             <input
                 type="password"
                 id="registerPassword"
-                placeholder="Password"
-                minlength="6"
+                placeholder="Enter password"
                 required
             >
 
-            <button class="btn primary" type="submit">
+            <button type="submit" class="btn primary">
                 Register
             </button>
 
-            <div id="registerMessage"></div>
+            <p id="registerMessage" class="notice"></p>
+
+            <p>
+                Already have an account?
+                <button
+                    type="button"
+                    class="btn ghost"
+                    onclick="openLogin()"
+                >
+                    Login
+                </button>
+            </p>
 
         </form>
-
-        <p style="margin-top:15px">
-            Already have an account?
-            <button
-                class="btn ghost"
-                onclick="openLogin()">
-                Login
-            </button>
-        </p>
     `;
 
-    $("#registerForm").addEventListener(
-        "submit",
-        registerUser
-    );
+    modal.classList.remove("hidden");
+
+    const form = $("#registerForm");
+
+    if (form) {
+        form.addEventListener("submit", registerUser);
+    }
 }
 
 // =========================
 // REGISTER USER
 // =========================
-async function registerUser(event) {
+async function registerUser(e) {
 
-    event.preventDefault();
+    e.preventDefault();
 
     const name = $("#registerName").value.trim();
     const email = $("#registerEmail").value.trim();
-    const mobile = $("#registerMobile").value.trim();
     const password = $("#registerPassword").value;
 
     const message = $("#registerMessage");
 
     try {
 
+        message.textContent = "Creating account...";
+
         await api("/api/register", {
             method: "POST",
             body: {
-                name,
-                email,
-                mobile,
-                password
+                name: name,
+                email: email,
+                password: password
             }
         });
 
-        message.innerHTML = `
-            <div class="notice">
-                ✅ Registration successful!
-                Please login.
-            </div>
-        `;
+        message.textContent = "Registration successful!";
 
         setTimeout(() => {
             openLogin();
-        }, 1000);
+        }, 700);
 
     } catch (error) {
 
-        message.innerHTML = `
-            <div class="notice">
-                ❌ ${esc(error.message)}
-            </div>
-        `;
+        message.textContent =
+            error.message || "Registration failed";
     }
 }
 
@@ -421,31 +327,7 @@ function logoutUser() {
 
     updateLoginButton();
 
-    alert("Logged out successfully.");
-}
-
-// =========================
-// UPDATE LOGIN BUTTON
-// =========================
-function updateLoginButton() {
-
-    const button = $("#loginBtn");
-
-    if (!button) return;
-
-    if (currentUser) {
-
-        button.textContent =
-            "Logout (" + currentUser.name + ")";
-
-        button.onclick = logoutUser;
-
-    } else {
-
-        button.textContent = "Login";
-
-        button.onclick = openLogin;
-    }
+    alert("Logged out successfully");
 }
 
 // =========================
@@ -453,96 +335,206 @@ function updateLoginButton() {
 // =========================
 function closeModal() {
 
-    $("#modal").classList.add("hidden");
+    const modal = $("#modal");
+
+    if (modal) {
+        modal.classList.add("hidden");
+    }
+}
+
+// =========================
+// LOAD COURSES
+// =========================
+async function loadCourses() {
+
+    try {
+
+        allCourses = await api("/api/courses");
+
+        const select = $("#course");
+
+        if (!select) return;
+
+        select.innerHTML = `
+            <option value="">All courses</option>
+        `;
+
+        allCourses.forEach(course => {
+
+            select.innerHTML += `
+                <option value="${esc(course.id)}">
+                    ${esc(course.name)}
+                </option>
+            `;
+
+        });
+
+    } catch (error) {
+
+        console.error("Courses error:", error);
+    }
+}
+
+// =========================
+// LOAD INSTITUTES
+// =========================
+async function loadInstitutes() {
+
+    try {
+
+        const q = $("#q")?.value.trim() || "";
+        const city = $("#city")?.value || "";
+        const course = $("#course")?.value || "";
+
+        let url = "/api/institutes?";
+
+        const params = new URLSearchParams();
+
+        if (q) {
+            params.append("q", q);
+        }
+
+        if (city) {
+            params.append("city", city);
+        }
+
+        if (course) {
+            params.append("course", course);
+        }
+
+        url += params.toString();
+
+        allInstitutes = await api(url);
+
+        displayInstitutes(allInstitutes);
+
+    } catch (error) {
+
+        console.error("Institutes error:", error);
+
+        const cards = $("#cards");
+
+        if (cards) {
+            cards.innerHTML = `
+                <p class="notice">
+                    Unable to load institutes.
+                </p>
+            `;
+        }
+    }
+}
+
+// =========================
+// DISPLAY INSTITUTES
+// =========================
+function displayInstitutes(institutes) {
+
+    const cards = $("#cards");
+    const count = $("#count");
+
+    if (!cards) return;
+
+    if (count) {
+        count.textContent =
+            `${institutes.length} institutes`;
+    }
+
+    if (!institutes.length) {
+
+        cards.innerHTML = `
+            <p class="notice">
+                No institutes found.
+            </p>
+        `;
+
+        return;
+    }
+
+    cards.innerHTML = institutes.map(institute => {
+
+        return `
+            <div class="card">
+
+                <h3>${esc(institute.name)}</h3>
+
+                <p>
+                    📍 ${esc(institute.city || "")}
+                </p>
+
+                <p>
+                    ${esc(institute.address || "")}
+                </p>
+
+                <button
+                    class="btn primary"
+                    onclick="viewInstitute(${institute.id})"
+                >
+                    View Details
+                </button>
+
+            </div>
+        `;
+
+    }).join("");
 }
 
 // =========================
 // VIEW INSTITUTE
 // =========================
-async function viewInstitute(id) {
+function viewInstitute(id) {
 
-    try {
+    const institute = allInstitutes.find(
+        item => Number(item.id) === Number(id)
+    );
 
-        const i =
-            await api("/api/institutes/" + id);
-
-        const maps =
-            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                i.latitude && i.longitude
-                    ? `${i.latitude},${i.longitude}`
-                    : i.address
-            )}`;
-
-        $("#modal").classList.remove("hidden");
-
-        $("#modalContent").innerHTML = `
-            <h2>${esc(i.name)}</h2>
-
-            <div class="rating">
-                ⭐ ${esc(i.rating || "0")}
-            </div>
-
-            <p>
-                📍 ${esc(i.address)}
-            </p>
-
-            <p>
-                🏙️ ${esc(i.city)}
-            </p>
-
-            <p>
-                📞 ${esc(i.phone || "Not available")}
-            </p>
-
-            <p>
-                📧 ${esc(i.email || "Not available")}
-            </p>
-
-            <p>
-                ${esc(i.description || "")}
-            </p>
-
-            <div class="tags">
-                ${(i.courses || "")
-                    .split(", ")
-                    .filter(Boolean)
-                    .map(c =>
-                        `<span class="tag">${esc(c)}</span>`
-                    )
-                    .join("")}
-            </div>
-
-            <a
-                href="${maps}"
-                target="_blank"
-                class="btn primary">
-                📍 Open in Google Maps
-            </a>
-        `;
-
-    } catch (error) {
-
-        alert(error.message);
+    if (!institute) {
+        alert("Institute not found");
+        return;
     }
+
+    const modal = $("#modal");
+    const content = $("#modalContent");
+
+    if (!modal || !content) return;
+
+    const mapQuery =
+        encodeURIComponent(
+            `${institute.name}, ${institute.address || institute.city}`
+        );
+
+    content.innerHTML = `
+        <h2>${esc(institute.name)}</h2>
+
+        <p>
+            📍 ${esc(institute.address || "")}
+        </p>
+
+        <p>
+            🏙️ ${esc(institute.city || "")}
+        </p>
+
+        <a
+            href="https://www.google.com/maps/search/?api=1&query=${mapQuery}"
+            target="_blank"
+            class="btn primary"
+        >
+            Open in Google Maps
+        </a>
+    `;
+
+    modal.classList.remove("hidden");
 }
 
 // =========================
-// PAGE START
+// MAKE FUNCTIONS GLOBAL
 // =========================
-document.addEventListener("DOMContentLoaded", () => {
+window.openLogin = openLogin;
+window.openRegister = openRegister;
+window.loginUser = loginUser;
+window.registerUser = registerUser;
+window.logoutUser = logoutUser;
+window.closeModal = closeModal;
+window.loadInstitutes = loadInstitutes;
+window.viewInstitute = viewInstitute;
 
-    updateLoginButton();
-
-    loadCourses();
-
-    loadInstitutes();
-
-    $("#modal").addEventListener("click", (event) => {
-
-        if (event.target.id === "modal") {
-            closeModal();
-        }
-
-    });
-
-});
+After replacing it, restart "npm start" and refresh the browser. Then click Login.
