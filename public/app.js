@@ -1,11 +1,401 @@
-const S={token:localStorage.getItem('stf_token')};const $=x=>document.getElementById(x);const esc=x=>String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-async function api(u,o={}){const h={'Content-Type':'application/json',...(o.headers||{})};if(S.token)h.Authorization='Bearer '+S.token;const r=await fetch(u,{...o,headers:h}),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Request failed');return d}
-function authMsg(x,e=false){$('msg').textContent=x||'';$('msg').style.color=e?'#c0392b':'#65758b'}function show(){ $('auth').classList.add('hide');$('app').classList.remove('hide');load()}function logout(){localStorage.removeItem('stf_token');S.token=null;location.reload()}
-$('rt').onclick=()=>{$('login').classList.add('hide');$('register').classList.remove('hide');authMsg('')};$('lt').onclick=()=>{$('register').classList.add('hide');$('login').classList.remove('hide');authMsg('')};
-$('login').onsubmit=async e=>{e.preventDefault();try{let d=await api('/api/login',{method:'POST',body:JSON.stringify({email:$('le').value,password:$('lp').value})});S.token=d.token;localStorage.setItem('stf_token',S.token);show()}catch(x){authMsg(x.message,true)}};
-$('register').onsubmit=async e=>{e.preventDefault();try{let d=await api('/api/register',{method:'POST',body:JSON.stringify({name:$('rn').value,email:$('re').value,password:$('rp').value})});S.token=d.token;localStorage.setItem('stf_token',S.token);show()}catch(x){authMsg(x.message,true)}};
-async function load(q=''){let c=$('course').value.trim(),p=new URLSearchParams();if(q)p.set('q',q);if(c)p.set('course',c);$('status').textContent='Loading...';try{let d=await api('/api/centers?'+p);render(d.centers);$('status').textContent=d.centers.length+' centre(s) found.'}catch(x){$('status').textContent=x.message}}
-function render(a){$('list').innerHTML=a.map(c=>{let m='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(c.address);return `<article class="card"><h3>${esc(c.name)}</h3><div class="muted">${esc(c.area||'')}<br>${esc(c.address)}</div><p class="muted">${c.phone?'📞 '+esc(c.phone):'Phone not listed'}</p><div class="chips">${(c.courses||[]).slice(0,7).map(x=>`<span class="chip">${esc(x.name)}</span>`).join('')||'<span class="muted">Course details not listed</span>'}</div><div class="actions"><button class="details" onclick="details(${c.id})">View Details</button><a class="maps" target="_blank" rel="noopener" href="${m}">Open in Google Maps</a></div></article>`}).join('')||'<div class="card"><h3>No centres found</h3><p>Try another area.</p></div>'}
-window.details=async id=>{try{let d=await api('/api/centers/'+id),c=d.center,m='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(c.address);$('detail').innerHTML=`<h2>${esc(c.name)}</h2><p class="muted">${esc(c.address)}</p><p>${c.phone?'📞 '+esc(c.phone):''}</p><div class="actions"><a class="maps" target="_blank" href="${m}">Start route in Google Maps</a>${c.website?`<a class="maps" target="_blank" href="${esc(c.website)}">Website</a>`:''}</div><h3>Courses</h3>${(c.courses||[]).map(x=>`<div class="course"><b>${esc(x.name)}</b></div>`).join('')||'<p class="muted">No course catalogue available.</p>'}`;$('modal').classList.remove('hide')}catch(x){alert(x.message)}};
-$('close').onclick=()=>$('modal').classList.add('hide');$('modal').onclick=e=>{if(e.target===$('modal'))$('modal').classList.add('hide')};$('search').onclick=()=>load($('q').value.trim());$('all').onclick=()=>{$('q').value='';$('course').value='';load()};$('loc').onclick=()=>{if(!navigator.geolocation)return alert('Location is not supported');$('status').textContent='Getting your location...';navigator.geolocation.getCurrentPosition(async p=>{try{let d=await api(`/api/nearest?lat=${p.coords.latitude}&lng=${p.coords.longitude}`);if(!d.coordinatesAvailable){$('status').textContent='Centre coordinates are not stored yet. Area search is available.';return}render(d.centers);$('status').textContent='Nearest centres shown.'}catch(x){$('status').textContent=x.message}},()=>$('status').textContent='Location permission not granted.')};
-(async()=>{if(!S.token)return;$('auth').classList.add('hide');$('app').classList.remove('hide');$('user').innerHTML='<div class="pill">Logged in <button class="logout" onclick="logout()">Logout</button></div>';load()})();
+const $ = (s) => document.querySelector(s);
+
+let token = localStorage.getItem("token") || "";
+let currentUser = null;
+let allInstitutes = [];
+let allCourses = [];
+
+// =========================
+// API HELPER
+// =========================
+async function api(url, options = {}) {
+  const headers = options.headers || {};
+
+  if (token) {
+    headers.Authorization = "Bearer " + token;
+  }
+
+  if (options.body && typeof options.body === "object") {
+    headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(options.body);
+  }
+
+  const res = await fetch(url, {
+    ...options,
+    headers
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.message || "Request failed");
+  }
+
+  return data;
+}
+
+// =========================
+// ESCAPE HTML
+// =========================
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// =========================
+// LOAD COURSES
+// =========================
+async function loadCourses() {
+  try {
+    allCourses = await api("/api/courses");
+
+    const select = $("#courseFilter");
+
+    if (select) {
+      select.innerHTML =
+        `<option value="">All Courses</option>` +
+        allCourses
+          .map(
+            c =>
+              `<option value="${esc(c.name)}">${esc(c.name)}</option>`
+          )
+          .join("");
+    }
+  } catch (e) {
+    console.error("Courses loading error:", e);
+  }
+}
+
+// =========================
+// INSTITUTE CARD
+// ONLY NAME + VIEW DETAILS
+// =========================
+function card(i) {
+  return `
+    <article class="card">
+      <div class="cardbody">
+        <h3>${esc(i.name)}</h3>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="btn primary"
+            onclick="details(${i.id})">
+            View Details
+          </button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+// =========================
+// LOAD INSTITUTES
+// =========================
+async function loadInstitutes() {
+  try {
+    const city = $("#city")?.value || "";
+    const course = $("#courseFilter")?.value || "";
+    const search = $("#search")?.value || "";
+
+    let url = "/api/institutes?";
+
+    if (city) {
+      url += `city=${encodeURIComponent(city)}&`;
+    }
+
+    if (course) {
+      url += `course=${encodeURIComponent(course)}&`;
+    }
+
+    if (search) {
+      url += `search=${encodeURIComponent(search)}&`;
+    }
+
+    allInstitutes = await api(url);
+
+    const container = $("#results");
+
+    if (!container) return;
+
+    if (!allInstitutes.length) {
+      container.innerHTML = `
+        <p class="muted">
+          No institutes found.
+        </p>
+      `;
+      return;
+    }
+
+    container.innerHTML = allInstitutes
+      .map(card)
+      .join("");
+
+  } catch (e) {
+    console.error("Institute loading error:", e);
+
+    const container = $("#results");
+
+    if (container) {
+      container.innerHTML = `
+        <p class="muted">
+          Unable to load institutes.
+        </p>
+      `;
+    }
+  }
+}
+
+// =========================
+// VIEW DETAILS
+// =========================
+async function details(id) {
+  try {
+    const i = await api("/api/institutes/" + id);
+
+    const maps =
+      "https://www.google.com/maps/search/?api=1&query=" +
+      encodeURIComponent(i.address || i.name);
+
+    $("#modalContent").innerHTML = `
+      <h2>${esc(i.name)}</h2>
+
+      <p class="rating">
+        ★ ${i.rating || "New"}
+      </p>
+
+      <p class="muted">
+        📍 ${esc(i.address || "Address not provided")}
+      </p>
+
+      <p>
+        ${esc(i.description || "No description available.")}
+      </p>
+
+      <p class="muted">
+        📞 ${esc(i.phone || "Not provided")}<br>
+        ✉️ ${esc(i.email || "Not provided")}
+      </p>
+
+      ${
+        i.courses
+          ? `
+            <div class="tags">
+              ${String(i.courses)
+                .split(",")
+                .map(
+                  c =>
+                    `<span class="tag">${esc(c.trim())}</span>`
+                )
+                .join("")}
+            </div>
+          `
+          : ""
+      }
+
+      <div class="actions" style="margin-top:20px;">
+
+        <a
+          class="btn primary"
+          target="_blank"
+          rel="noopener noreferrer"
+          href="${maps}">
+          📍 Open in Google Maps
+        </a>
+
+        ${
+          token
+            ? `
+              <button
+                type="button"
+                class="btn"
+                onclick="save(${i.id})">
+                ❤️ Save
+              </button>
+            `
+            : ""
+        }
+
+      </div>
+    `;
+
+    $("#modal").classList.remove("hidden");
+
+  } catch (e) {
+    console.error(e);
+
+    alert(
+      "Unable to load institute details: " +
+      e.message
+    );
+  }
+}
+
+// =========================
+// CLOSE MODAL
+// =========================
+function closeModal() {
+  $("#modal").classList.add("hidden");
+}
+
+// =========================
+// SAVE INSTITUTE
+// =========================
+async function save(id) {
+  if (!token) {
+    alert("Please login to save institutes.");
+    return;
+  }
+
+  try {
+    await api("/api/favorites", {
+      method: "POST",
+      body: {
+        institute_id: id
+      }
+    });
+
+    alert("Institute saved successfully.");
+
+  } catch (e) {
+    alert("Unable to save institute: " + e.message);
+  }
+}
+
+// =========================
+// LOGIN
+// =========================
+async function login(email, password) {
+  try {
+    const data = await api("/api/login", {
+      method: "POST",
+      body: {
+        email,
+        password
+      }
+    });
+
+    token = data.token;
+    localStorage.setItem("token", token);
+
+    currentUser = data.user || null;
+
+    alert("Login successful.");
+
+    closeModal();
+
+    await loadInstitutes();
+
+  } catch (e) {
+    alert("Login failed: " + e.message);
+  }
+}
+
+// =========================
+// REGISTER
+// =========================
+async function register(name, email, password) {
+  try {
+    await api("/api/register", {
+      method: "POST",
+      body: {
+        name,
+        email,
+        password
+      }
+    });
+
+    alert("Registration successful. Please login.");
+
+  } catch (e) {
+    alert("Registration failed: " + e.message);
+  }
+}
+
+// =========================
+// LOGOUT
+// =========================
+function logout() {
+  token = "";
+  currentUser = null;
+
+  localStorage.removeItem("token");
+
+  alert("Logged out successfully.");
+
+  loadInstitutes();
+}
+
+// =========================
+// SEARCH
+// =========================
+function searchInstitutes() {
+  loadInstitutes();
+}
+
+// =========================
+// INITIALIZE
+// =========================
+async function init() {
+  await loadCourses();
+  await loadInstitutes();
+}
+
+// =========================
+// EVENT LISTENERS
+// =========================
+document.addEventListener("DOMContentLoaded", () => {
+
+  const searchBtn = $("#searchBtn");
+
+  if (searchBtn) {
+    searchBtn.addEventListener(
+      "click",
+      searchInstitutes
+    );
+  }
+
+  const search = $("#search");
+
+  if (search) {
+    search.addEventListener("keyup", e => {
+      if (e.key === "Enter") {
+        searchInstitutes();
+      }
+    });
+  }
+
+  const courseFilter = $("#courseFilter");
+
+  if (courseFilter) {
+    courseFilter.addEventListener(
+      "change",
+      loadInstitutes
+    );
+  }
+
+  const city = $("#city");
+
+  if (city) {
+    city.addEventListener(
+      "change",
+      loadInstitutes
+    );
+  }
+
+  const modal = $("#modal");
+
+  if (modal) {
+    modal.addEventListener("click", e => {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+  }
+
+  init();
+});
